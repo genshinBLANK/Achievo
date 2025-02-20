@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Achievo - WeekToDo Planner</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rowdies:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <style>
+      /* Styling for the modal (popup) */
+      .modal {
+        display: none; /* Hidden by default */
+        position: fixed;
+        z-index: 10;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+      }
+
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        position: relative;
+      }
+
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        cursor: pointer;
+      }
+
+      .close:hover,
+      .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+        .rowdies-light {
+            font-family: "Rowdies", serif;
+            font-weight: 300;
+            font-style: normal;
+        }
+
+        .rowdies-regular {
+            font-family: "Rowdies", serif;
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        .rowdies-bold {
+            font-family: "Rowdies", serif;
+            font-weight: 700;
+            font-style: normal;
+        }
+      /* Styling for the navigation arrows */
+      .arrow-button {
+        cursor: pointer;
+        font-size: 2rem; /* Larger font size for arrows */
+        color: #4a5568;  /* Gray color */
+        padding: 0.5rem; /* Some padding */
+        transition: color 0.2s; /* Smooth color transition */
+      }
+
+      .arrow-button:hover {
+        color: #2d3748; /* Darker gray on hover */
+      }
+
+      /* Style for empty day cells */
+      .empty-day {
+        background-color: #f7fafc; /* Light gray background */
+        border: 1px solid #e2e8f0; /* Light gray border */
+        opacity: 0.6;             /* Slightly transparent */
+        pointer-events: none;     /* Make them non-clickable */
+      }
+        /* Add styling for day names at the top */
+      .day-name {
+        text-align: center;
+        font-weight: bold;
+        padding: 0.5rem;
+        border-bottom: 1px solid #e2e8f0; /* Optional: Add a bottom border */
+        background-color: #edf2f7; /* Light gray background */
+        color: #4a5568;
+      }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-100 to-gray-300">
+    <div id="app" class="p-6  min-h-screen relative">
+
+      <!-- Header -->
+      <header class="bg-gradient-to-r from-green-500 to-teal-500 py-4 rounded-t-lg shadow-md mb-6">
+          <div class="container mx-auto text-center">
+              <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white rowdies-bold">Achievo</h1>
+              <p class="text-lg md:text-xl lg:text-2xl text-white rowdies-light mt-2">Your Weekly Task Planner</p>
+          </div>
+      </header>
+
+
+
+        <!-- Main Container (Calendar) -->
+        <div class="container mx-auto">
+          <!-- Day Names Row -->
+            <div class="grid grid-cols-7 gap-4 mb-2">
+                <div class="day-name rowdies-regular">Monday</div>
+                <div class="day-name rowdies-regular">Tuesday</div>
+                <div class="day-name rowdies-regular">Wednesday</div>
+                <div class="day-name rowdies-regular">Thursday</div>
+                <div class="day-name rowdies-regular">Friday</div>
+                <div class="day-name rowdies-regular">Sunday</div>
+                <div class="day-name rowdies-regular">Saturday</div>
+            </div>
+
+            <!-- Calendar Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+            <!-- Daily Sections -->
+            <div v-for="day in days" :key="day.id" :class="[day.isEmpty ? 'empty-day' : 'bg-white', 'p-4', 'rounded-lg', 'shadow-lg', 'transition-transform', 'transform', 'hover:scale-105']">
+                <h2 v-if="!day.isEmpty" class="text-lg font-semibold text-gray-700 rowdies-regular">
+                    {{ day.name }}<br>
+                    <span class="text-sm font-normal text-gray-500">{{ day.date }}</span>
+                </h2>
+
+                <div v-if="!day.isEmpty" class="mt-4 space-y-2">
+                    <div v-for="(task, index) in day.tasks" :key="index"
+                          class="group flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                         :class="{ 'opacity-50 line-through': task.completed }"
+                         @click="toggleTaskCompletion(day.id, index)"
+                         >
+                        <div class="flex items-center gap-2">
+                           <span :class="['w-3', 'h-3', 'rounded-full', 'mr-2', getPriorityClass(task.priority)]"></span>
+                            <span class="text-gray-800 rowdies-regular">{{ task.text }}</span>
+                        </div>
+                        <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="text-gray-400 hover:text-gray-600 p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    @click.stop="showTaskDetails(day.id, index)">
+                                ⋮
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task Details Modal -->
+      <div class="modal" :style="{ display: activeTask ? 'block' : 'none' }">
+        <div class="modal-content bg-white rounded-lg shadow-xl p-6">
+          <span class="close text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400" @click="closeTaskDetails">&times;</span>
+          <h2 v-if="activeTask" class="text-2xl font-semibold text-gray-800 mb-4 rowdies-regular">{{ activeTask.text }}</h2>
+            <div v-if="activeTask" class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-gray-700 mb-2"><strong class="rowdies-regular">Description:</strong> <span class="rowdies-regular">{{ activeTask.description }}</span></p>
+                    <p class="text-gray-700 mb-2"><strong class="rowdies-regular">Date:</strong> <span class="rowdies-regular">{{ activeTask.date }}</span></p>
+                </div>
+                <div>
+                    <p class="text-gray-700 mb-2"><strong class="rowdies-regular">Time:</strong> <span class="rowdies-regular">{{ activeTask.time }}</span></p>
+                    <p class="text-gray-700 mb-4"><strong class="rowdies-regular">Importance:</strong> <span :class="getPriorityClass(activeTask.priority) + ' rowdies-regular inline-block px-2 py-1 rounded-full text-white'">{{ activeTask.priority }}</span></p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button @click="deleteTask" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200 rowdies-regular">
+                    Delete Task
+                </button>
+            </div>
+        </div>
+      </div>
+
+       <!-- Month Navigation -->
+        <div class="flex justify-center items-center mt-4">
+            <span @click="prevMonth" class="arrow-button">&lt;</span>
+            <span class="text-xl font-semibold mx-4 rowdies-regular">{{ currentMonthName }} {{ currentYear }}</span>
+            <span @click="nextMonth" class="arrow-button">&gt;</span>
+        </div>
+
+      <!-- Create Task Button (Fixed to Bottom Right) -->
+      <a href="create-task.html" class="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition-colors duration-200 rowdies-regular z-50">
+          + Create Task
+      </a>
+
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        const priorityOrder = ['low', 'medium', 'high'];
+        const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'sunday', 'saturday'];
+
+
+        createApp({
+            data() {
+                return {
+                    days: [],
+                    activeTask: null,
+                    activeDayId: null,
+                    activeTaskIndex: null,
+                    currentYear: new Date().getFullYear(),
+                    currentMonth: new Date().getMonth(),
+                }
+            },
+            computed: {
+               currentMonthName() {
+                return new Date(this.currentYear, this.currentMonth).toLocaleString('en-US', { month: 'long' });
+                }
+            },
+            methods: {
+                toggleTaskCompletion(dayId, taskIndex) {
+                    const day = this.days.find(d => d.id === dayId);
+                    if (day) {
+                        day.tasks[taskIndex].completed = !day.tasks[taskIndex].completed;
+                        this.saveData();
+                    }
+                },
+                showTaskDetails(dayId, taskIndex) {
+                    const day = this.days.find(d => d.id === dayId);
+                    if (day) {
+                       this.activeTask = { ...day.tasks[taskIndex] };
+                        this.activeDayId = dayId;
+                        this.activeTaskIndex = taskIndex;
+                    }
+
+                },
+                closeTaskDetails() {
+                    this.activeTask = null;
+                    this.activeDayId = null;
+                    this.activeTaskIndex = null;
+                },
+                getPriorityClass(priority) {
+                    if (priority === 'low') return 'bg-green-500';
+                    if (priority === 'medium') return 'bg-blue-500';
+                    if (priority === 'high') return 'bg-red-500';
+                    return '';
+                },
+                deleteTask() {
+                    if (this.activeDayId !== null && this.activeTaskIndex !== null) {
+                        const day = this.days.find(d => d.id === this.activeDayId);
+                         if (day) {
+                            day.tasks.splice(this.activeTaskIndex, 1);
+                            this.saveData();
+                            this.closeTaskDetails();
+                        }
+                    }
+                },
+                loadData() {
+                    const savedData = localStorage.getItem('calendarData');
+                    if (savedData) {
+                        this.days = JSON.parse(savedData);
+                    }
+                },
+                saveData() {
+                    localStorage.setItem('calendarData', JSON.stringify(this.days));
+                },
+               generateCalendar(year, month) {
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const firstDayOfMonth = new Date(year, month, 1);
+                  const firstDayOfWeek = firstDayOfMonth.getDay(); // 0 (Sun) - 6 (Sat)
+                  const startDayIndex = (firstDayOfWeek + 6) % 7; // 0 (Mon) - 6 (Sun)
+
+                  let newDays = [];
+
+                  // Add empty days for padding at the beginning of the month, *before* the first week
+                  for (let i = 0; i < startDayIndex; i++) {
+                      newDays.push({ id: `empty-${i}`, isEmpty: true });
+                  }
+
+                  // Add the actual days of the month
+                  for (let i = 1; i <= daysInMonth; i++) {
+                      const date = new Date(year, month, i);
+                      const dayOfWeek = date.toLocaleString('en-US', { weekday: 'long' });
+                      const dayId = `${dayOfWeek.toLowerCase()}-${i}`;
+                      const formattedDate = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+                      newDays.push({
+                          id: dayId,
+                          name: dayOfWeek,
+                          date: formattedDate,
+                          tasks: [],
+                          isEmpty: false
+                      });
+                  }
+
+
+                // No sorting needed - we're building the grid directly
+
+                return newDays; //Return the newDays
+              },
+
+                getTasksForMonth(year, month) {
+                const savedData = localStorage.getItem('calendarData');
+                if (savedData) {
+                    const allTasks = JSON.parse(savedData);
+
+                    return allTasks.filter(day => {
+                        const taskDate = new Date(day.date);
+                        return taskDate.getFullYear() === year && taskDate.getMonth() === month;
+                    });
+                  }
+                return [];
+                },
+
+                prevMonth() {
+                    if (this.currentMonth === 0) {
+                        this.currentMonth = 11;
+                        this.currentYear--;
+                    } else {
+                        this.currentMonth--;
+                    }
+                    this.updateCalendar();
+                },
+                nextMonth() {
+                    if (this.currentMonth === 11) {
+                        this.currentMonth = 0;
+                        this.currentYear++;
+                    } else {
+                        this.currentMonth++;
+                    }
+                    this.updateCalendar();
+                },
+
+                updateCalendar() {
+                  let calendarDays = this.generateCalendar(this.currentYear, this.currentMonth);
+                  const savedTasks = this.getTasksForMonth(this.currentYear, this.currentMonth);
+
+                    const savedTasksMap = new Map();
+                    savedTasks.forEach(day => {
+                        savedTasksMap.set(day.id, day.tasks);
+                    });
+
+
+                  calendarDays = calendarDays.map(day => {
+                    if (!day.isEmpty && savedTasksMap.has(day.id)) {
+                        return { ...day, tasks: savedTasksMap.get(day.id) };
+                    }
+                     return day; // Return the original 'day', even for empty days
+                  });
+
+                    this.days = calendarDays;
+                }
+            },
+            mounted() {
+                this.updateCalendar();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
